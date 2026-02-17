@@ -1,0 +1,9 @@
+.vs/
+build/
+out/
+vcpkg_installed/
+*.user
+*.suo
+x64/
+Debug/
+Release/
