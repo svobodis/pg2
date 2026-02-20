@@ -15,7 +15,11 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(OpenCV REQUIRED)
 
 set(PROJECT_SOURCES
-    helloworld.cpp
+    main.cpp 
+    app.cpp
+    getinfo.cpp
+    gl_err_callback.cpp
+    time_measure.cpp
 )
 
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
