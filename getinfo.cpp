@@ -1,9 +1,13 @@
 #include <iostream>
+#include <stdexcept> 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-#include <stdexcept> 
+#include <glm/glm.hpp>
+#include <opencv2/opencv.hpp>
 
-void print_gl_info() {
+#include "app.hpp"
+
+void App::print_gl_info() {
     std::cout << "--- OpenGL Context Info ---\n";
 
     const char* vendor = (const char*)glGetString(GL_VENDOR);
@@ -28,7 +32,6 @@ void print_gl_info() {
     std::cout << "GL Numeric version: " << major << "." << minor << '\n';
 
     GLint profile;
-    
     glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &profile);
 
     if (profile & GL_CONTEXT_CORE_PROFILE_BIT) {
@@ -51,4 +54,19 @@ void print_gl_info() {
     if (flags & GL_CONTEXT_FLAG_ROBUST_ACCESS_BIT) std::cout << "ROBUST_ACCESS ";
     if (flags & GL_CONTEXT_FLAG_NO_ERROR_BIT) std::cout << "NO_ERROR ";
     std::cout << "\n---------------------------\n";
+}
+
+void App::print_glfw_info() {
+    std::cout << "GLFW Version: " << glfwGetVersionString() << "\n";
+}
+
+void App::print_glm_info() {
+    std::cout << "GLM Version:  " << GLM_VERSION_MAJOR << "."
+        << GLM_VERSION_MINOR << "."
+        << GLM_VERSION_PATCH << "\n";
+}
+
+void App::print_opencv_info() {
+    std::cout << "OpenCV Version: " << CV_VERSION << "\n";
+    std::cout << "======================================\n";
 }

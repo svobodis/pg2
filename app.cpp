@@ -11,6 +11,10 @@
 #include <chrono>
 #include <stack>
 #include <random>
+#include <filesystem>
+#include <algorithm>
+#include <string>
+#include <fstream>
 
 // OpenCV (does not depend on GL)
 #include <opencv2\opencv.hpp>
@@ -29,103 +33,120 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-
 #include "assets.hpp"
-
 #include "app.hpp"
 
 #include "gl_err_callback.h"
 
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
+
+void test_time_measure();
+
 App::App()
 {
-    // default constructor
-    // nothing to do here (so far...)
     std::cout << "Constructed...\n";
 }
 
-bool App::init()
-{
+
+void App::init_glfw() {
+    glfwSetErrorCallback(glfw_error_callback);
+
+    if (!glfwInit()) {
+        throw std::runtime_error("GLFW can not be initialized.");
+    }
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+
+    std::ifstream config_file("config.json");
+    if (config_file.is_open()) {
+        std::string content((std::istreambuf_iterator<char>(config_file)), std::istreambuf_iterator<char>());
+        size_t w_pos = content.find("\"width\"");
+        if (w_pos != std::string::npos) sscanf(content.c_str() + w_pos, "\"width\"%*[ : \t]%d", &win_width);
+        size_t h_pos = content.find("\"height\"");
+        if (h_pos != std::string::npos) sscanf(content.c_str() + h_pos, "\"height\"%*[ : \t]%d", &win_height);
+    }
+
+    window = glfwCreateWindow(win_width, win_height, "ICP Projekt", nullptr, nullptr);
+    if (!window) throw std::runtime_error("GLFW window can not be created.");
+
+    glfwSetWindowUserPointer(window, this);
+    glfwMakeContextCurrent(window);
+
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+    glfwSetFramebufferSizeCallback(window, glfw_framebuffer_size_callback);
+    glfwSetMouseButtonCallback(window, glfw_mouse_button_callback);
+    glfwSetKeyCallback(window, glfw_key_callback);
+    glfwSetScrollCallback(window, glfw_scroll_callback);
+    glfwSetCursorPosCallback(window, glfw_cursor_position_callback);
+}
+
+void App::init_glew() {
+    glewExperimental = GL_TRUE;
+    if (glewInit() != GLEW_OK) throw std::runtime_error("Failed to initialize GLEW");
+    wglewInit();
+    if (!GLEW_ARB_direct_state_access) throw std::runtime_error("No DSA :-(");
+}
+
+void App::init_gl_debug() {
+    if (GLEW_ARB_debug_output) {
+        glDebugMessageCallback(App::MessageCallback, 0);
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        std::cout << "GL_DEBUG enabled." << std::endl;
+    }
+    else {
+        std::cout << "GL_DEBUG NOT SUPPORTED!" << std::endl;
+    }
+}
+
+void App::init_opencv() {}
+
+bool App::init() {
     try {
-        void print_gl_info();
-        glfwSetErrorCallback(error_callback);
+        std::cout << "Current working directory: " << std::filesystem::current_path().generic_string() << '\n';
 
-        if (!glfwInit()) {
-            throw std::runtime_error("Failed to initialize GLFW");
-        }
+        if (!std::filesystem::exists("resources"))
+            throw std::runtime_error("Directory 'resources' not found.");
 
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        init_opencv();
+        init_glfw();
+        init_glew();
+        init_gl_debug();
 
-        // open window (GL canvas) with no special properties
-        // https://www.glfw.org/docs/latest/quick.html#quick_create_window
-        // TODO: add error checking!
-        window = glfwCreateWindow(800, 600, "OpenGL context", NULL, NULL);
-        if (!window) {
-            glfwTerminate();
-            throw std::runtime_error("Failed to create GLFW window");
-        }
-        
-        glfwSetWindowUserPointer(window, this);
-        glfwSetKeyCallback(window, key_callback);
-        glfwSetScrollCallback(window, scroll_callback);
-        
-        glfwMakeContextCurrent(window);
-        glfwSwapInterval(vsync_enabled ? 1 : 0);
-
-        glewExperimental = GL_TRUE;
-        if (glewInit() != GLEW_OK) {
-            throw std::runtime_error("Failed to initialize GLEW");
-        }
-
+        print_opencv_info();
+        print_glfw_info();
         print_gl_info();
+        print_glm_info();
 
-        if (GLEW_ARB_debug_output)
-        {
-            glDebugMessageCallback(MessageCallback, 0);
-            glEnable(GL_DEBUG_OUTPUT);
+        glfwSwapInterval(is_vsync_on ? 1 : 0);
 
-            //default is asynchronous debug output, use this to simulate glGetError() functionality
-            //glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        init_assets();
+        init_imgui();
 
-            std::cout << "GL_DEBUG enabled." << std::endl;
-        }
-        else
-            std::cout << "GL_DEBUG NOT SUPPORTED!" << std::endl;
-
-        wglewInit();
-
-        if (!GLEW_ARB_direct_state_access)
-            throw std::runtime_error("No DSA :-(");
-
-
-        //TODO: get info about your GL context    
-        // initialization code
-        //...
-
-        // some init
-        // if (not_success)
-        //  throw std::runtime_error("something went bad");
+        glfwShowWindow(window);
     }
     catch (std::exception const& e) {
         std::cerr << "Init failed : " << e.what() << std::endl;
         throw;
     }
-    
-    std::cout << "Initialized...\n";
-
-	init_assets();
-    
     return true;
 }
 
-void App::init_assets(void) {
-    //
-    // Initialize pipeline: compile, link and use shaders
-    //
+void App::init_imgui() {
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init();
+    std::cout << "ImGUI version: " << ImGui::GetVersion() << "\n";
+}
 
-
-    //SHADERS - define & compile & link
+void App::init_assets() {
     const char* vertex_shader =
         "#version 460 core\n"
         "in vec3 attribute_Position;"
@@ -154,145 +175,132 @@ void App::init_assets(void) {
     glAttachShader(shader_prog_ID, vs);
     glLinkProgram(shader_prog_ID);
 
-    //now we can delete shader parts (they can be reused, if you have more shaders)
-    //the final shader program already linked and stored separately
     glDetachShader(shader_prog_ID, fs);
     glDetachShader(shader_prog_ID, vs);
     glDeleteShader(vs);
     glDeleteShader(fs);
 
-    // 
-    // Create and load data into GPU using OpenGL DSA (Direct State Access)
-    //
-
-    // Create VAO + data description (similar to container)
     glCreateVertexArrays(1, &VAO_ID);
-
     GLint position_attrib_location = glGetAttribLocation(shader_prog_ID, "attribute_Position");
-
     vertex v;
-
     glEnableVertexArrayAttrib(VAO_ID, position_attrib_location);
     glVertexArrayAttribFormat(VAO_ID, position_attrib_location, v.position.length(), GL_FLOAT, GL_FALSE, offsetof(vertex, position));
-    glVertexArrayAttribBinding(VAO_ID, position_attrib_location, 0); // (GLuint vaobj, GLuint attribindex, GLuint bindingindex)
+    glVertexArrayAttribBinding(VAO_ID, position_attrib_location, 0);
 
-    // Create and fill data
     glCreateBuffers(1, &VBO_ID);
     glNamedBufferData(VBO_ID, triangle_vertices.size() * sizeof(vertex), triangle_vertices.data(), GL_STATIC_DRAW);
-
-    // Connect together
-    glVertexArrayVertexBuffer(VAO_ID, 0, VBO_ID, 0, sizeof(vertex)); // (GLuint vaobj, GLuint bindingindex, GLuint buffer, GLintptr offset, GLsizei stride)
+    glVertexArrayVertexBuffer(VAO_ID, 0, VBO_ID, 0, sizeof(vertex));
 }
 
-
-
-
-int App::run(void)
-{
+int App::run(void) {
     try {
-        //GLfloat r, g, b, a;
-        //r = g = b = a = 1.0f; //white color
+        double FPS = 0.0;
 
-        // Activate shader program. There is only one program, so activation can be out of the loop. 
-        // In more realistic scenarios, you will activate different shaders for different 3D objects.
+        double now = glfwGetTime();
+        double frame_begin_timepoint = now;
+        double previous_frame_render_time{};
+
         glUseProgram(shader_prog_ID);
-
-        // Get uniform location in GPU program. This will not change, so it can be moved out of the game loop.
         GLint uniform_color_location = glGetUniformLocation(shader_prog_ID, "uniform_Color");
-        if (uniform_color_location == -1) {
-            std::cerr << "Uniform location is not found in active shader program. Did you forget to activate it?\n";
-        }
 
         while (!glfwWindowShouldClose(window)) {
-            // clear canvas
+            if (show_imgui) {
+                ImGui_ImplOpenGL3_NewFrame();
+                ImGui_ImplGlfw_NewFrame();
+                ImGui::NewFrame();
+
+                ImGui::SetNextWindowPos(ImVec2(10, 10));
+                ImGui::SetNextWindowSize(ImVec2(300, 150));
+                ImGui::Begin("Herni Info", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+                ImGui::Text("V-Sync: %s", is_vsync_on ? "ON" : "OFF");
+                ImGui::Text("FPS: %.1f", FPS);
+                ImGui::Text("---------------------------");
+                ImGui::Text("PRAVE TLACITKO = Odemknout mys");
+                ImGui::Text("Klavesa V = Prepnout VSync");
+                ImGui::Text("Klavesa D = Skryt ImGui");
+                ImGui::End();
+            }
+
+            glClearColor(bg_r, bg_g, bg_b, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            //set uniform parameter for shader
-            // (try to change the color in key callback)          
             glUniform4f(uniform_color_location, r, g, b, a);
-
-            //bind 3d object data
             glBindVertexArray(VAO_ID);
-
-            // draw all VAO data
             glDrawArrays(GL_TRIANGLES, 0, triangle_vertices.size());
 
-            // poll events, call callbacks, flip back<->front buffer
-            glfwPollEvents();
+            if (show_imgui) {
+                ImGui::Render();
+                ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            }
+
             glfwSwapBuffers(window);
+            glfwPollEvents();
+
+            now = glfwGetTime();
+            previous_frame_render_time = now - frame_begin_timepoint;
+            frame_begin_timepoint = now;
+
+            fps_counter.update();
+
+            if (fps_counter.is_updated()) {
+                FPS = fps_counter.get();
+
+                std::string title = "ICP Projekt - FPS: " + std::to_string((int)FPS);
+                glfwSetWindowTitle(window, title.c_str());
+            }
         }
     }
     catch (std::exception const& e) {
         std::cerr << "App failed : " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
-    
-    std::cout << "Finished OK...\n";
     return EXIT_SUCCESS;
 }
 
-App::~App()
-{
-    // clean-up
-    glDeleteProgram(shader_prog_ID);
-    glDeleteBuffers(1, &VBO_ID);
-    glDeleteVertexArrays(1, &VAO_ID);
+void App::toggle_fullscreen() {
+    is_fullscreen = !is_fullscreen;
 
+    if (is_fullscreen) {
+        glfwGetWindowPos(window, &saved_xpos, &saved_ypos);
+        glfwGetWindowSize(window, &saved_width, &saved_height);
+
+        int monitors_count;
+        GLFWmonitor** monitors = glfwGetMonitors(&monitors_count);
+        GLFWmonitor* current_monitor = monitors[0];
+
+        for (int i = 0; i < monitors_count; i++) {
+            int mx, my;
+            glfwGetMonitorPos(monitors[i], &mx, &my);
+            if (saved_xpos >= mx && saved_ypos >= my) {
+                current_monitor = monitors[i];
+            }
+        }
+
+        const GLFWvidmode* mode = glfwGetVideoMode(current_monitor);
+        glfwSetWindowMonitor(window, current_monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+    }
+    else {
+        glfwSetWindowMonitor(window, nullptr, saved_xpos, saved_ypos, saved_width, saved_height, 0);
+    }
+}
+
+
+
+void App::destroy() {
+    if (ImGui::GetCurrentContext()) {
+        ImGui_ImplOpenGL3_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
+    }
+    cv::destroyAllWindows();
     if (window) {
         glfwDestroyWindow(window);
+        window = nullptr;
     }
     glfwTerminate();
+}
 
-    cv::destroyAllWindows();
+App::~App() {
+    destroy();
     std::cout << "Bye...\n";
 }
-
-
-void App::error_callback(int error, const char* description) {
-    std::cerr << "Error: " << description << std::endl;
-}
-
-
-void App::scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-    if (yoffset > 0.0) {
-        std::cout << "wheel up...\n";
-    }
-    else if (yoffset < 0.0) {
-        std::cout << "wheel down...\n";
-    }
-}
-
-void App::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    
-    App* app = (App*)glfwGetWindowUserPointer(window);
-
-    if ((action == GLFW_PRESS) || (action == GLFW_REPEAT)) {
-        switch (key) {
-
-        case GLFW_KEY_ESCAPE:
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-            break;
-
-        case GLFW_KEY_V:
-            if (app) {
-                app->vsync_enabled = !app->vsync_enabled;
-                glfwSwapInterval(app->vsync_enabled ? 1 : 0);
-                std::cout << "VSync: " << (app->vsync_enabled ? "ZAPNUTO" : "VYPNUTO") << std::endl;
-            }
-            break;
-
-        case GLFW_KEY_SPACE:
-            if (app) {
-                app->r = (float)rand() / RAND_MAX;
-                app->g = (float)rand() / RAND_MAX;
-                app->b = (float)rand() / RAND_MAX;
-                std::cout << "Zmena barvy na: " << app->r << ", " << app->g << ", " << app->b << std::endl;
-            }
-            break;
-
-        default:
-            break;
-        }
-    }
-}
-
