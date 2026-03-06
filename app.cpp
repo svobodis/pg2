@@ -35,12 +35,17 @@
 
 #include "assets.hpp"
 #include "app.hpp"
+#include "meshgen.hpp"
+#include "Model.hpp"
+#include "teapot_vec.hpp"
 
 #include "gl_err_callback.h"
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+
+
 
 void test_time_measure();
 
@@ -147,49 +152,72 @@ void App::init_imgui() {
 }
 
 void App::init_assets() {
-    const char* vertex_shader =
-        "#version 460 core\n"
-        "in vec3 attribute_Position;"
-        "void main() {"
-        "  gl_Position = vec4(attribute_Position, 1.0);"
-        "}";
+    shader_library.emplace("basic", std::make_shared<ShaderProgram>(
+        std::filesystem::path("resources/basic.vert"),
+        std::filesystem::path("resources/basic.frag")
+    ));
 
-    const char* fragment_shader =
-        "#version 460 core\n"
-        "uniform vec4 uniform_Color;"
-        "out vec4 FragColor;"
-        "void main() {"
-        "  FragColor = uniform_Color;"
-        "}";
+    shader_library.emplace("basic_core", std::make_shared<ShaderProgram>(
+        std::filesystem::path("resources/basic_core.vert"),
+        std::filesystem::path("resources/basic_core.frag")
+    ));
 
-    GLuint vs = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vs, 1, &vertex_shader, NULL);
-    glCompileShader(vs);
+    shader_library.emplace("basic_uniform", std::make_shared<ShaderProgram>(
+        std::filesystem::path("resources/basic_core.vert"),
+        std::filesystem::path("resources/basic_uniform.frag")
+    ));
 
-    GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fs, 1, &fragment_shader, NULL);
-    glCompileShader(fs);
+    shader_library.emplace("rainbow", std::make_shared<ShaderProgram>(
+        std::filesystem::path("resources/basic_core.vert"),
+        std::filesystem::path("resources/GL_rainbow.frag")
+    ));
 
-    shader_prog_ID = glCreateProgram();
-    glAttachShader(shader_prog_ID, fs);
-    glAttachShader(shader_prog_ID, vs);
-    glLinkProgram(shader_prog_ID);
+    auto shader = shader_library.at("basic");
 
-    glDetachShader(shader_prog_ID, fs);
-    glDetachShader(shader_prog_ID, vs);
-    glDeleteShader(vs);
-    glDeleteShader(fs);
+    GLint pos_loc = shader->getAttribLocation("aPos");
+    GLint col_loc = shader->getAttribLocation("aColor");
 
-    glCreateVertexArrays(1, &VAO_ID);
-    GLint position_attrib_location = glGetAttribLocation(shader_prog_ID, "attribute_Position");
-    vertex v;
-    glEnableVertexArrayAttrib(VAO_ID, position_attrib_location);
-    glVertexArrayAttribFormat(VAO_ID, position_attrib_location, v.position.length(), GL_FLOAT, GL_FALSE, offsetof(vertex, position));
-    glVertexArrayAttribBinding(VAO_ID, position_attrib_location, 0);
+    //my_triangle = std::make_shared<Mesh>(triangle_vertices, GL_TRIANGLES);
 
-    glCreateBuffers(1, &VBO_ID);
-    glNamedBufferData(VBO_ID, triangle_vertices.size() * sizeof(vertex), triangle_vertices.data(), GL_STATIC_DRAW);
-    glVertexArrayVertexBuffer(VAO_ID, 0, VBO_ID, 0, sizeof(vertex));
+    //my_triangle = generateCube(); 
+    //my_triangle = generateSphere(36, 18);
+
+    //my_model = std::make_shared<Model>("resources/plane_tri_vnt.obj", shader_library.at("basic"));
+
+    mesh_library.emplace("cube", generateCube());
+    mesh_library.emplace("sphere", generateSphere(36, 18));
+
+    std::vector<Vertex> vertices;
+    std::vector<GLuint> indices;
+    std::vector<Vertex> bunny_vertices;
+    std::vector<GLuint> bunny_indices;
+    if (loadOBJ("resources/bunny_tri_vn.obj", bunny_vertices, bunny_indices)) {
+        for (auto& v : bunny_vertices) {
+            v.position *= 0.01f;
+
+            v.position.y -= 0.5f;
+        }
+        mesh_library.emplace("bunny", std::make_shared<Mesh>(bunny_vertices, bunny_indices, GL_TRIANGLES));
+
+        Model my_bunny;
+        my_bunny.addMesh(mesh_library.at("bunny"), shader_library.at("basic"));
+        scene["Stanfordsky_Kralik"] = my_bunny;
+    }
+
+    if (loadOBJ("resources/triangle.obj", vertices, indices)) {
+        mesh_library.emplace("triangle_obj", std::make_shared<Mesh>(vertices, indices, GL_TRIANGLES));
+    }
+
+    //Model sphere_model;
+    //sphere_model.addMesh(mesh_library.at("sphere"), shader_library.at("rainbow"));
+    //sphere_model.pivot_position = glm::vec3(0.0f, 0.0f, 0.0f);
+
+    //scene["Duhova_Koule"] = sphere_model;
+
+    //Model cube_model;
+    //cube_model.addMesh(mesh_library.at("cube"), shader_library.at("basic"));
+    //scene["Moje_Kostka"] = cube_model;
+
 }
 
 int App::run(void) {
@@ -200,8 +228,6 @@ int App::run(void) {
         double frame_begin_timepoint = now;
         double previous_frame_render_time{};
 
-        glUseProgram(shader_prog_ID);
-        GLint uniform_color_location = glGetUniformLocation(shader_prog_ID, "uniform_Color");
 
         while (!glfwWindowShouldClose(window)) {
             if (show_imgui) {
@@ -218,15 +244,53 @@ int App::run(void) {
                 ImGui::Text("PRAVE TLACITKO = Odemknout mys");
                 ImGui::Text("Klavesa V = Prepnout VSync");
                 ImGui::Text("Klavesa D = Skryt ImGui");
+                ImGui::Separator();
+                ImGui::Text("Vyber Shader:");
+                if (ImGui::RadioButton("Basic", active_shader_name == "basic")) { active_shader_name = "basic"; }
+                if (ImGui::RadioButton("Basic Core", active_shader_name == "basic_core")) { active_shader_name = "basic_core"; }
+                if (ImGui::RadioButton("Basic Uniform", active_shader_name == "basic_uniform")) { active_shader_name = "basic_uniform"; }
+                if (ImGui::RadioButton("Rainbow (ShaderToy)", active_shader_name == "rainbow")) { active_shader_name = "rainbow"; }
+                ImGui::Separator();
                 ImGui::End();
             }
+
+            shader_library.at("rainbow")->use();
+            shader_library.at("rainbow")->setUniform("iTime", static_cast<float>(glfwGetTime()));
+
+            if (shader_library.count("basic_uniform") > 0) {
+                shader_library.at("basic_uniform")->use();
+                shader_library.at("basic_uniform")->setUniform("ucolor", glm::vec4(r, g, b, 1.0f));
+            }
+
+            if (scene.count("Duhova_Koule") > 0) { 
+                scene["Duhova_Koule"].meshes[0].shader = shader_library.at(active_shader_name);
+            }
+
 
             glClearColor(bg_r, bg_g, bg_b, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            glUniform4f(uniform_color_location, r, g, b, a);
-            glBindVertexArray(VAO_ID);
-            glDrawArrays(GL_TRIANGLES, 0, triangle_vertices.size());
+            //if (my_model) {
+            //    my_model->draw();
+            //}
+
+            for (auto& item : scene) {
+                item.second.update(0.016f);
+                item.second.draw();
+            }
+
+            auto current_shader = shader_library.at(active_shader_name);
+            current_shader->use();
+
+            if (active_shader_name == "rainbow") {
+                current_shader->setUniform("iTime", static_cast<float>(glfwGetTime()));
+            }
+            else if (active_shader_name == "basic_uniform") {
+                current_shader->setUniform("ucolor", glm::vec4(r, g, b, 1.0f));
+            }
+
+            //my_triangle->draw();
+			//my_model->draw();
 
             if (show_imgui) {
                 ImGui::Render();

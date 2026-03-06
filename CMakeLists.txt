@@ -22,6 +22,9 @@ set(PROJECT_SOURCES
     getinfo.cpp
     gl_err_callback.cpp
     time_measure.cpp
+    ShaderProgram.cpp
+    meshgen.cpp
+    OBJloader.cpp
 )
 
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES} "callbacks.cpp")

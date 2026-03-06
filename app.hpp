@@ -11,6 +11,12 @@
 #include <glm/glm.hpp>
 #include "fps_meter.hpp"
 
+#include <unordered_map>
+#include <memory>
+#include "ShaderProgram.hpp"
+#include "Mesh.hpp"
+#include "Model.hpp"
+
 class App {
 public:
     App();
@@ -58,14 +64,18 @@ private:
 
     static void glfw_cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 
-    GLuint shader_prog_ID{ 0 };
-    GLuint VBO_ID{ 0 };
-    GLuint VAO_ID{ 0 };
-    std::vector<vertex> triangle_vertices = {
-        {{ 0.0f,  0.5f,  0.0f }},
-        {{ 0.5f, -0.5f,  0.0f }},
-        {{-0.5f, -0.5f,  0.0f }}
-    };
+    std::string active_shader_name = "basic";
+
+    std::unordered_map<std::string, std::shared_ptr<ShaderProgram>> shader_library;
+    std::unordered_map<std::string, std::shared_ptr<Mesh>> mesh_library;
+
+    std::unordered_map<std::string, Model> scene;
+    std::shared_ptr<Mesh> my_triangle;
+    //std::vector<Vertex> triangle_vertices = {
+    //    {{ 0.0f,  0.5f,  0.0f },     { 0.0f, 0.0f, 1.0f },                  { 0.5f, 1.0f }}, 
+    //    {{ 0.5f, -0.5f,  0.0f },     { 0.0f, 0.0f, 1.0f },                  { 1.0f, 0.0f }}, 
+    //    {{-0.5f, -0.5f,  0.0f },     { 0.0f, 0.0f, 1.0f },                  { 0.0f, 0.0f }}  
+    //};
 
     GLfloat r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
     GLfloat bg_r = 0.1f, bg_g = 0.1f, bg_b = 0.2f;
