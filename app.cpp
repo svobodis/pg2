@@ -38,6 +38,7 @@
 #include "meshgen.hpp"
 #include "Model.hpp"
 #include "teapot_vec.hpp"
+#include "OBJloader.hpp"
 
 #include "gl_err_callback.h"
 
@@ -135,6 +136,11 @@ bool App::init() {
         init_imgui();
 
         glfwShowWindow(window);
+
+        glfwSetWindowUserPointer(window, this);
+
+        glfwGetFramebufferSize(window, &win_width, &win_height);
+        update_projection_matrix();
     }
     catch (std::exception const& e) {
         std::cerr << "Init failed : " << e.what() << std::endl;
@@ -152,23 +158,26 @@ void App::init_imgui() {
 }
 
 void App::init_assets() {
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
     shader_library.emplace("basic", std::make_shared<ShaderProgram>(
-        std::filesystem::path("resources/basic.vert"),
+        std::filesystem::path("resources/basic_core3.vert"),
         std::filesystem::path("resources/basic.frag")
     ));
 
     shader_library.emplace("basic_core", std::make_shared<ShaderProgram>(
-        std::filesystem::path("resources/basic_core.vert"),
-        std::filesystem::path("resources/basic_core.frag")
+        std::filesystem::path("resources/basic_core3.vert"),
+        std::filesystem::path("resources/basic_core3.frag")
     ));
 
     shader_library.emplace("basic_uniform", std::make_shared<ShaderProgram>(
-        std::filesystem::path("resources/basic_core.vert"),
+        std::filesystem::path("resources/basic_core3.vert"),
         std::filesystem::path("resources/basic_uniform.frag")
     ));
 
     shader_library.emplace("rainbow", std::make_shared<ShaderProgram>(
-        std::filesystem::path("resources/basic_core.vert"),
+        std::filesystem::path("resources/basic_core3.vert"),
         std::filesystem::path("resources/GL_rainbow.frag")
     ));
 
@@ -227,6 +236,7 @@ int App::run(void) {
         double now = glfwGetTime();
         double frame_begin_timepoint = now;
         double previous_frame_render_time{};
+        bool is_pov_camera = false;
 
 
         while (!glfwWindowShouldClose(window)) {
@@ -243,7 +253,7 @@ int App::run(void) {
                 ImGui::Text("---------------------------");
                 ImGui::Text("PRAVE TLACITKO = Odemknout mys");
                 ImGui::Text("Klavesa V = Prepnout VSync");
-                ImGui::Text("Klavesa D = Skryt ImGui");
+                ImGui::Text("Klavesa G = Skryt ImGui");
                 ImGui::Separator();
                 ImGui::Text("Vyber Shader:");
                 if (ImGui::RadioButton("Basic", active_shader_name == "basic")) { active_shader_name = "basic"; }
@@ -274,20 +284,54 @@ int App::run(void) {
             //    my_model->draw();
             //}
 
+            static bool c_was_pressed = false;
+            if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
+                if (!c_was_pressed) {
+                    is_pov_camera = !is_pov_camera;
+                    c_was_pressed = true;
+                }
+            }
+            else {
+                c_was_pressed = false;
+            }
+
+            glm::mat4 v_m;
+
+            if (is_pov_camera && scene.count("Stanfordsky_Kralik") > 0) {
+                auto& bunny = scene.at("Stanfordsky_Kralik");
+
+                glm::vec3 cameraOffset = glm::vec3(0.0f, 2.0f, 5.0f);
+                glm::vec3 targetPosition = bunny.pivot_position + cameraOffset;
+
+                camera.Position += (targetPosition - camera.Position) * 5.0f * static_cast<float>(previous_frame_render_time);
+
+                v_m = glm::lookAt(camera.Position, bunny.pivot_position, glm::vec3(0.0f, 1.0f, 0.0f));
+
+                if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) bunny.translate(glm::vec3(0.0f, 0.0f, -2.0f * previous_frame_render_time));
+                if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) bunny.translate(glm::vec3(0.0f, 0.0f, 2.0f * previous_frame_render_time));
+                if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) bunny.translate(glm::vec3(-2.0f * previous_frame_render_time, 0.0f, 0.0f));
+                if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) bunny.translate(glm::vec3(2.0f * previous_frame_render_time, 0.0f, 0.0f));
+
+            }
+            else {
+                camera.ProcessInput(window, static_cast<float>(previous_frame_render_time));
+                v_m = camera.GetViewMatrix();
+            }
+
+            for (auto& [name, shader] : shader_library) {
+                shader->use();
+                shader->setUniform("uP_m", projection_matrix);
+                shader->setUniform("uV_m", v_m);
+            }
+
             for (auto& item : scene) {
+                item.second.rotate(glm::vec3(0.0f, 1.0f, 0.0f));
+
                 item.second.update(0.016f);
                 item.second.draw();
             }
 
-            auto current_shader = shader_library.at(active_shader_name);
-            current_shader->use();
 
-            if (active_shader_name == "rainbow") {
-                current_shader->setUniform("iTime", static_cast<float>(glfwGetTime()));
-            }
-            else if (active_shader_name == "basic_uniform") {
-                current_shader->setUniform("ucolor", glm::vec4(r, g, b, 1.0f));
-            }
 
             //my_triangle->draw();
 			//my_model->draw();

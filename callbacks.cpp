@@ -25,7 +25,7 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
                 std::cout << "VSync: " << (this_inst->is_vsync_on ? "ON" : "OFF") << "\n";
             }
             break;
-        case GLFW_KEY_D:
+        case GLFW_KEY_G:
             if (action == GLFW_PRESS) {
                 this_inst->show_imgui = !this_inst->show_imgui;
             }
@@ -49,18 +49,45 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
     }
 }
 
+
 void App::glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-    if (yoffset > 0.0) {
-        std::cout << "wheel up...\n";
-    }
-    else if (yoffset < 0.0) {
-        std::cout << "wheel down...\n";
+    auto this_inst = static_cast<App*>(glfwGetWindowUserPointer(window));
+    if (this_inst) {
+        this_inst->fov -= 5.0f * yoffset;
+        this_inst->fov = std::clamp(this_inst->fov, 20.0f, 170.0f);
+        this_inst->update_projection_matrix();
     }
 }
 
 void App::glfw_framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    glViewport(0, 0, width, height);
+    auto this_inst = static_cast<App*>(glfwGetWindowUserPointer(window));
+    if (this_inst) {
+        this_inst->win_width = width;
+        this_inst->win_height = height;
+        glViewport(0, 0, width, height);
+        this_inst->update_projection_matrix();
+    }
 }
+
+void App::update_projection_matrix() {
+    if (win_height < 1) win_height = 1;
+    float ratio = static_cast<float>(win_width) / win_height;
+    projection_matrix = glm::perspective(glm::radians(fov), ratio, 0.1f, 20000.0f);
+}
+
+
+//void App::glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+//    if (yoffset > 0.0) {
+//        std::cout << "wheel up...\n";
+//    }
+//    else if (yoffset < 0.0) {
+//        std::cout << "wheel down...\n";
+//    }
+//}
+
+//void App::glfw_framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+//    glViewport(0, 0, width, height);
+//}
 
 void App::glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
     if (action == GLFW_PRESS) {
@@ -86,14 +113,22 @@ void App::glfw_mouse_button_callback(GLFWwindow* window, int button, int action,
 
 
 void App::glfw_cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
-    App* app = (App*)glfwGetWindowUserPointer(window);
-    if (app) {
-        int mode = glfwGetInputMode(window, GLFW_CURSOR);
-        if (mode == GLFW_CURSOR_DISABLED) {
-            int width, height;
-            glfwGetWindowSize(window, &width, &height);
-            app->bg_r = (float)(xpos / width);
-            app->bg_g = (float)(ypos / height);
+    auto this_inst = static_cast<App*>(glfwGetWindowUserPointer(window));
+    if (this_inst) {
+        if (this_inst->firstMouse) {
+            this_inst->cursorLastX = xpos;
+            this_inst->cursorLastY = ypos;
+            this_inst->firstMouse = false;
+        }
+
+        double xoffset = xpos - this_inst->cursorLastX;
+        double yoffset = this_inst->cursorLastY - ypos;
+
+        this_inst->cursorLastX = xpos;
+        this_inst->cursorLastY = ypos;
+
+        if (this_inst->is_mouse_locked) {
+            this_inst->camera.ProcessMouseMovement(xoffset, yoffset);
         }
     }
 }

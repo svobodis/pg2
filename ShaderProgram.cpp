@@ -4,6 +4,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "ShaderProgram.hpp"
 #include "Mesh.hpp" 
@@ -74,6 +75,13 @@ void ShaderProgram::setUniform(const std::string& name, const std::vector<GLint>
 void ShaderProgram::setUniform(const std::string& name, const std::vector<glm::vec3>& val) {
     auto loc = getUniformLocation(name);
     glProgramUniform3fv(ID, loc, val.size(), glm::value_ptr(val[0]));
+}
+
+void ShaderProgram::setUniform(const std::string& name, const glm::mat4& val) {
+    GLint loc = getUniformLocation(name);
+    if (loc != -1) {
+        glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(val));
+    }
 }
 
 std::string ShaderProgram::getShaderInfoLog(const GLuint obj) {
