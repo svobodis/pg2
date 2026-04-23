@@ -14,6 +14,7 @@
 #include "assets.hpp"
 #include "Mesh.hpp"
 #include "ShaderProgram.hpp"
+#include "Texture.hpp"
 
 class Model {
 public:
@@ -26,6 +27,7 @@ public:
     struct mesh_package {
         std::shared_ptr<Mesh> mesh;
         std::shared_ptr<ShaderProgram> shader;
+        std::shared_ptr<Texture> texture;
 
         glm::vec3 origin{ 0.0f };
         glm::vec3 eulerAngles{ 0.0f };
@@ -55,8 +57,14 @@ private:
 public:
     Model() = default;
 
-    void addMesh(std::shared_ptr<Mesh> mesh, std::shared_ptr<ShaderProgram> shader) {
-        meshes.push_back({ mesh, shader, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f) });
+    bool is_transparent = false;
+
+    glm::vec3 getPosition() const {
+        return pivot_position;
+    }
+
+    void addMesh(std::shared_ptr<Mesh> mesh, std::shared_ptr<ShaderProgram> shader, std::shared_ptr<Texture> texture = nullptr) {
+        meshes.push_back({ mesh, shader, texture, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f) });
     }
 
     void setPosition(const glm::vec3& new_position) {
@@ -100,9 +108,14 @@ public:
         for (auto const& mesh_pkg : meshes) {
             mesh_pkg.shader->use();
 
-            glm::mat4 mesh_model_matrix = createMM(mesh_pkg.origin, mesh_pkg.eulerAngles, mesh_pkg.scale);
+            if (mesh_pkg.texture) {
+                mesh_pkg.texture->bind();
+                mesh_pkg.shader->setUniform("tex0", 0); 
+            }
 
+            glm::mat4 mesh_model_matrix = createMM(mesh_pkg.origin, mesh_pkg.eulerAngles, mesh_pkg.scale);
             glm::mat4 final_matrix = local_model_matrix * mesh_model_matrix;
+
             mesh_pkg.shader->setUniform("uM_m", final_matrix);
 
             mesh_pkg.mesh->draw();

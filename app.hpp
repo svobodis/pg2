@@ -17,6 +17,7 @@
 #include "ShaderProgram.hpp"
 #include "Mesh.hpp"
 #include "Model.hpp"
+#include "miniaudio.h"
 
 class App {
 public:
@@ -28,6 +29,10 @@ public:
     int run(void);
     void destroy(void);
     void toggle_fullscreen();
+    ma_engine audio_engine;
+    cv::Mat mapa;
+    uchar getmap(cv::Mat& map, int x, int y);
+    void genLabyrinth(cv::Mat& map);
 
 private:
     GLFWwindow* window{ nullptr };
@@ -78,6 +83,7 @@ private:
 
     std::unordered_map<std::string, std::shared_ptr<ShaderProgram>> shader_library;
     std::unordered_map<std::string, std::shared_ptr<Mesh>> mesh_library;
+    std::unordered_map<std::string, std::shared_ptr<Texture>> texture_library;
 
     std::unordered_map<std::string, Model> scene;
     std::shared_ptr<Mesh> my_triangle;

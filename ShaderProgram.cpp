@@ -56,7 +56,13 @@ void ShaderProgram::setUniform(const std::string& name, const GLfloat val) {
     glProgramUniform1f(ID, loc, val);
 }
 
-// OPRAVA 4: Přejmenován parametr in_vec4 na val
+void ShaderProgram::setUniform(const std::string& name, int val) {
+    GLint loc = getUniformLocation(name);
+    if (loc != -1) {
+        glUniform1i(loc, val);
+    }
+}
+
 void ShaderProgram::setUniform(const std::string& name, const glm::vec4& val) {
     auto loc = getUniformLocation(name);
     glProgramUniform4fv(ID, loc, 1, glm::value_ptr(val));
@@ -65,6 +71,13 @@ void ShaderProgram::setUniform(const std::string& name, const glm::vec4& val) {
 void ShaderProgram::setUniform(const std::string& name, const glm::mat3& val) {
     auto loc = getUniformLocation(name);
     glProgramUniformMatrix3fv(ID, loc, 1, GL_FALSE, glm::value_ptr(val));
+}
+
+void ShaderProgram::setUniform(const std::string& name, const glm::vec3& val) {
+    GLint loc = getUniformLocation(name);
+    if (loc != -1) {
+        glUniform3f(loc, val.x, val.y, val.z);
+    }
 }
 
 void ShaderProgram::setUniform(const std::string& name, const std::vector<GLint>& val) {

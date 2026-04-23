@@ -25,9 +25,10 @@ set(PROJECT_SOURCES
     ShaderProgram.cpp
     meshgen.cpp
     OBJloader.cpp
+    Texture.cpp
 )
 
-add_executable(${PROJECT_NAME} ${PROJECT_SOURCES} "callbacks.cpp")
+add_executable(${PROJECT_NAME} ${PROJECT_SOURCES} "callbacks.cpp" "miniaudio.cpp")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     GLEW::GLEW

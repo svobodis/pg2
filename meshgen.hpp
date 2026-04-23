@@ -1,7 +1,11 @@
 #pragma once
 
 #include <memory>
-#include "Mesh.hpp"
+#include <filesystem>
+
+#include "Mesh.hpp" 
 
 std::shared_ptr<Mesh> generateCube();
-std::shared_ptr<Mesh> generateSphere(unsigned int sectors = 36, unsigned int rings = 18);
+std::shared_ptr<Mesh> generateSphere(unsigned int rings, unsigned int sectors);
+
+std::shared_ptr<Mesh> GenHeightMap(const std::filesystem::path& hm_file, const unsigned int mesh_step_size);
