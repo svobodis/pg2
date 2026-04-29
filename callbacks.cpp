@@ -16,7 +16,15 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
     if ((action == GLFW_PRESS) || (action == GLFW_REPEAT)) {
         switch (key) {
         case GLFW_KEY_ESCAPE:
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
+            if (action == GLFW_PRESS) {
+                if (this_inst->currentState == GameState::PLAYING) {
+                    this_inst->currentState = GameState::MENU;
+                    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                }
+                else {
+                    glfwSetWindowShouldClose(window, GLFW_TRUE);
+                }
+            }
             break;
         case GLFW_KEY_V:
             if (action == GLFW_PRESS) {
@@ -31,14 +39,21 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
             }
             break;
         case GLFW_KEY_SPACE:
-            if (action == GLFW_PRESS) {
-                this_inst->r = (float)rand() / RAND_MAX;
-                this_inst->g = (float)rand() / RAND_MAX;
-                this_inst->b = (float)rand() / RAND_MAX;
-                std::cout << "Zmena barvy trojuhelniku!\n";
+            if (action == GLFW_PRESS
+                && this_inst->currentState == GameState::PLAYING
+                && !this_inst->is_free_camera
+                && this_inst->isGrounded)
+            {
+                this_inst->playerVelocityY = 6.0f;
+                this_inst->isGrounded = false;
             }
             break;
         case GLFW_KEY_F11:
+            if (action == GLFW_PRESS) {
+                this_inst->toggle_fullscreen();
+            }
+            break;
+        case GLFW_KEY_F:
             if (action == GLFW_PRESS) {
                 this_inst->toggle_fullscreen();
             }
@@ -75,33 +90,45 @@ void App::update_projection_matrix() {
     projection_matrix = glm::perspective(glm::radians(fov), ratio, 0.1f, 20000.0f);
 }
 
-
-//void App::glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-//    if (yoffset > 0.0) {
-//        std::cout << "wheel up...\n";
-//    }
-//    else if (yoffset < 0.0) {
-//        std::cout << "wheel down...\n";
-//    }
-//}
-
-//void App::glfw_framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-//    glViewport(0, 0, width, height);
-//}
+void App::toggle_fullscreen() {
+    is_fullscreen = !is_fullscreen;
+    if (is_fullscreen) {
+        glfwGetWindowPos(window, &saved_xpos, &saved_ypos);
+        glfwGetWindowSize(window, &saved_width, &saved_height);
+        int monitors_count;
+        GLFWmonitor** monitors = glfwGetMonitors(&monitors_count);
+        GLFWmonitor* current_monitor = monitors[0];
+        for (int i = 0; i < monitors_count; i++) {
+            int mx, my;
+            glfwGetMonitorPos(monitors[i], &mx, &my);
+            if (saved_xpos >= mx && saved_ypos >= my)
+                current_monitor = monitors[i];
+        }
+        const GLFWvidmode* mode = glfwGetVideoMode(current_monitor);
+        glfwSetWindowMonitor(window, current_monitor, 0, 0,
+            mode->width, mode->height, mode->refreshRate);
+    }
+    else {
+        glfwSetWindowMonitor(window, nullptr,
+            saved_xpos, saved_ypos,
+            saved_width, saved_height, 0);
+    }
+}
 
 void App::glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+    auto this_inst = static_cast<App*>(glfwGetWindowUserPointer(window));
+    if (!this_inst) return;
+
     if (action == GLFW_PRESS) {
         switch (button) {
-        case GLFW_MOUSE_BUTTON_LEFT: {
-            int mode = glfwGetInputMode(window, GLFW_CURSOR);
-            if (mode == GLFW_CURSOR_NORMAL) {
+        case GLFW_MOUSE_BUTTON_LEFT:
+            if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_NORMAL) {
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
             }
             else {
-                std::cout << "Bang!\n";
+                this_inst->shoot();
             }
             break;
-        }
         case GLFW_MOUSE_BUTTON_RIGHT:
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             break;

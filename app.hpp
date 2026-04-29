@@ -19,6 +19,22 @@
 #include "Model.hpp"
 #include "miniaudio.h"
 
+
+
+enum class GameState { MENU, PLAYING, WIN, GAMEOVER };
+
+struct Projektil {
+    Model model;
+    glm::vec3 velocity;
+    float lifetime;
+};
+
+struct Particle {
+    Model model;
+    glm::vec3 velocity;
+    float lifetime;
+};
+
 class App {
 public:
     App();
@@ -30,9 +46,28 @@ public:
     void destroy(void);
     void toggle_fullscreen();
     ma_engine audio_engine;
+    ma_sound bgMusic;                // Objekt pro smyčkovanou hudbu
+    bool isBgMusicLoaded = false; 
+    void shoot();
+
+    float footstepTimer = 0.0f;     
+    bool stepToggle = true;
     cv::Mat mapa;
     uchar getmap(cv::Mat& map, int x, int y);
     void genLabyrinth(cv::Mat& map);
+    void resolveCollision();
+    GameState currentState = GameState::MENU;
+    int mazeRows = 15;
+    int mazeCols = 25;
+    int coinCount = 10; 
+    int celkem_minci_na_mape = 0;
+    int sebrano_minci = 0;
+    float gameTimer = 60.0f;       
+    float initialTime = 60.0f;
+
+    void spocitej_mince();
+
+    void startNewGame();
 
 private:
     GLFWwindow* window{ nullptr };
@@ -43,6 +78,8 @@ private:
     double cursorLastX{ 0.0 };
     double cursorLastY{ 0.0 };
     bool firstMouse{ true };
+
+    bool is_free_camera = false;
 
     bool is_mouse_locked{ true };
     int win_width{ 800 };
@@ -86,13 +123,9 @@ private:
     std::unordered_map<std::string, std::shared_ptr<Texture>> texture_library;
 
     std::unordered_map<std::string, Model> scene;
-    std::shared_ptr<Mesh> my_triangle;
-    //std::vector<Vertex> triangle_vertices = {
-    //    {{ 0.0f,  0.5f,  0.0f },     { 0.0f, 0.0f, 1.0f },                  { 0.5f, 1.0f }}, 
-    //    {{ 0.5f, -0.5f,  0.0f },     { 0.0f, 0.0f, 1.0f },                  { 1.0f, 0.0f }}, 
-    //    {{-0.5f, -0.5f,  0.0f },     { 0.0f, 0.0f, 1.0f },                  { 0.0f, 0.0f }}  
-    //};
+    std::vector<Particle> aktivni_castice;
+    std::vector<Projektil> aktivni_projektily;
 
-    GLfloat r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
-    GLfloat bg_r = 0.1f, bg_g = 0.1f, bg_b = 0.2f;
+    float playerVelocityY = 0.0f; // Rychlost padání / skákání
+    bool isGrounded = false;      // Hráč na zemi
 };

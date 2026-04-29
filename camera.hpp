@@ -41,15 +41,22 @@ public:
         return glm::lookAt(this->Position, this->Position + this->Front, this->Up);
     }
 
-    void ProcessInput(GLFWwindow* window, GLfloat deltaTime) {
+    void ProcessInput(GLFWwindow* window, GLfloat deltaTime, bool is_free_cam = true) {
         glm::vec3 direction(0.0f);
 
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) direction += Front;
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) direction -= Front;
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) direction -= Right;
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) direction += Right;
-        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) direction += Up;
-        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) direction -= Up;
+        glm::vec3 moveFront = is_free_cam ? Front : glm::normalize(glm::vec3(Front.x, 0.0f, Front.z));
+        glm::vec3 moveRight = Right;
+
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) direction += moveFront;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) direction -= moveFront;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) direction -= moveRight;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) direction += moveRight;
+
+        // Létání nahoru/dolů jen pro Free Cam
+        if (is_free_cam) {
+            if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) direction += glm::vec3(0.0f, 1.0f, 0.0f); // Absolutní nahoru
+            if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) direction -= glm::vec3(0.0f, 1.0f, 0.0f); // Absolutní dolů
+        }
 
         if (glm::length(direction) > 0.0f) {
             direction = glm::normalize(direction);
@@ -60,6 +67,10 @@ public:
 
         if (glm::length(Velocity) > MaxSpeed) {
             Velocity = glm::normalize(Velocity) * MaxSpeed;
+        }
+
+        if (!is_free_cam) {
+            Velocity.y = 0.0f;
         }
 
         Position += Velocity * deltaTime;

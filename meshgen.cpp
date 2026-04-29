@@ -93,7 +93,7 @@ std::shared_ptr<Mesh> GenHeightMap(const std::filesystem::path& hm_file, const u
     for (unsigned int x_coord = 0; x_coord < (hmap.cols - mesh_step_size); x_coord += mesh_step_size) {
         for (unsigned int z_coord = 0; z_coord < (hmap.rows - mesh_step_size); z_coord += mesh_step_size) {
 
-            // Získání Y pozice a roztažení hor (dělíme třeba 10.0f, ať nejsou hory moc špičaté)
+            // Získání Y pozice a roztažení hor 
             float y0 = hmap.at<uchar>(cv::Point(x_coord, z_coord)) / 10.0f;
             float y1 = hmap.at<uchar>(cv::Point(x_coord + mesh_step_size, z_coord)) / 10.0f;
             float y2 = hmap.at<uchar>(cv::Point(x_coord + mesh_step_size, z_coord + mesh_step_size)) / 10.0f;
@@ -112,12 +112,12 @@ std::shared_ptr<Mesh> GenHeightMap(const std::filesystem::path& hm_file, const u
             glm::vec2 tc2 = tc0 + glm::vec2(1.0f / 16.0f, 1.0f / 16.0f);
             glm::vec2 tc3 = tc0 + glm::vec2(0.0f, 1.0f / 16.0f);
 
-            // OPRAVA CHYBĚJÍCÍCH ZÁVOREK: Výpočet normál
+            // Výpočet normál
             glm::vec3 n1 = glm::normalize(glm::cross(p1 - p0, p2 - p0));
             glm::vec3 n2 = glm::normalize(glm::cross(p2 - p0, p3 - p0));
             glm::vec3 navg = glm::normalize(n1 + n2);
 
-            // OPRAVA INDEXŮ: Zjistíme, na jakém indexu zrovna jsme
+            //  Zjistíme, na jakém indexu zrovna jsme
             GLuint startIndex = vertices.size();
 
             // Přidáme vrcholy do pole
