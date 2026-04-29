@@ -20,7 +20,6 @@ public:
 
     // activate shader
     void use(void) {
-        // OPRAVA: Přejmenováno currently_used_ID na currently_used
         if (ID == currently_used)
             return;
         else {
@@ -36,7 +35,6 @@ public:
     };
 
     ~ShaderProgram(void) {
-        // OPRAVA: Bezpečnostní pojistka - vypneme jen tehdy, pokud je to ten náš!
         if (currently_used == ID) {
             deactivate();
         }
@@ -49,6 +47,7 @@ public:
 
     void setUniform(const std::string& name, const GLfloat val);
     void setUniform(const std::string& name, const GLint val);
+    void setUniform(const std::string& name, const glm::vec2& val);
     void setUniform(const std::string& name, const glm::vec3& val);
     void setUniform(const std::string& name, const glm::vec4& val);
     void setUniform(const std::string& name, const glm::mat3& val);
